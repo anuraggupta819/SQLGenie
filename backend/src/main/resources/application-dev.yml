@@ -21,13 +21,14 @@ spring:
 
   ai:
     openai:
-      # No real key configured yet - the app still boots and unit tests still
-      # pass (they mock ChatClient), but any live call will fail with an auth
-      # error until a real OPENAI_API_KEY is exported.
-      api-key: ${OPENAI_API_KEY:sk-not-configured}
+      # Groq's API is OpenAI-compatible, so the OpenAI client is reused
+      # here pointed at Groq's endpoint instead of api.openai.com - no
+      # separate Spring AI provider integration exists (or is needed).
+      base-url: https://api.groq.com/openai
+      api-key: ${GROQ_API_KEY:not-configured}
       chat:
         options:
-          model: gpt-4o-mini
+          model: llama-3.3-70b-versatile
           temperature: 0.0
 
 app:

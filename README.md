@@ -36,7 +36,7 @@ Backend starts on `http://localhost:8080`.
 - Health check: `GET /actuator/health`
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - A dev-only admin account is seeded automatically (`admin@sqlgenie.dev` — see `application-dev.yml` for the password default; override via `ADMIN_SEED_PASSWORD`).
-- The app boots without an OpenAI key, but natural-language-to-SQL calls need one: export `OPENAI_API_KEY` before running.
+- The app boots without an API key, but natural-language-to-SQL calls need one: export `GROQ_API_KEY` before running. Uses [Groq](https://console.groq.com) (OpenAI-compatible endpoint, `llama-3.3-70b-versatile`) rather than OpenAI directly.
 
 ### Tests
 

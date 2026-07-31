@@ -29,7 +29,7 @@ flowchart TB
     end
 
     subgraph External["External Services"]
-        OPENAI["OpenAI API\n(via Spring AI ChatClient)"]
+        OPENAI["Groq API\n(OpenAI-compatible, via Spring AI ChatClient)"]
     end
 
     subgraph DB["PostgreSQL Server"]
@@ -163,7 +163,7 @@ sequenceDiagram
     participant API as QueryController
     participant ASM as AssistantService
     participant NL as NlToSqlService
-    participant AI as OpenAI (Spring AI)
+    participant AI as Groq (Spring AI, OpenAI-compatible)
     participant VAL as SqlValidatorService
     participant EX as SqlExecutorService
     participant DB as Postgres (target, read-only)
@@ -195,7 +195,7 @@ sequenceDiagram
     end
 ```
 
-Key design choice: the SQL **and** its explanation are requested from OpenAI in a **single structured-output call** (Spring AI `BeanOutputConverter` mapping to a `GeneratedSql(sql, explanation)` record), not two separate round trips — halves LLM latency and cost per query. The validator never trusts the LLM's own claim that its output is safe; it independently parses and checks every response.
+Key design choice: the SQL **and** its explanation are requested from the LLM provider in a **single structured-output call** (Spring AI `BeanOutputConverter` mapping to a `GeneratedSql(sql, explanation)` record), not two separate round trips — halves LLM latency and cost per query. The validator never trusts the LLM's own claim that its output is safe; it independently parses and checks every response.
 
 ## 7. Database Execution Flow
 
@@ -218,7 +218,7 @@ flowchart LR
     subgraph Azure["Azure"]
         SWA["Azure Static Web Apps\n(frontend)"]
         ACA["Azure Container Apps\n(backend)"]
-        KV["Azure Key Vault\n(JWT secret, OpenAI key, DB creds)"]
+        KV["Azure Key Vault\n(JWT secret, LLM API key, DB creds)"]
         PG["Azure Database for PostgreSQL\nFlexible Server"]
         AI2["Application Insights"]
     end
@@ -239,8 +239,8 @@ Same GHCR-based image registry pattern already used for the Cartify project, for
 - **AST-based SQL validation** (JSqlParser), not regex — closes comment/encoding bypass tricks.
 - **Prompt injection assumption**: the natural-language input is untrusted and may try to manipulate the LLM into producing destructive or out-of-scope SQL. Mitigation is layered: (a) system prompt restricts the model to an explicit table/column allow-list, (b) the validator independently re-checks every output regardless of what the model claims, (c) the DB role physically cannot write or see `app` data even if both (a) and (b) were bypassed.
 - **JWT in httpOnly cookies**, `SameSite=Strict`, short expiry; CSRF protection required once cookies replace bearer headers (Spring Security `CookieCsrfTokenRepository`).
-- **Rate limiting** on `POST /queries` — bounds both abuse and OpenAI cost (per-user token bucket).
-- **Secrets** (OpenAI key, JWT secret, DB credentials) only ever in Azure Key Vault / environment config — never committed, never logged.
+- **Rate limiting** on `POST /queries` — bounds both abuse and LLM API cost (per-user token bucket).
+- **Secrets** (LLM API key, JWT secret, DB credentials) only ever in Azure Key Vault / environment config — never committed, never logged.
 - **CORS** restricted explicitly to the deployed frontend origin.
 - **Bean Validation** on every request DTO — reject malformed input before it reaches a service.
 
@@ -251,5 +251,5 @@ Same GHCR-based image registry pattern already used for the Cartify project, for
 - Refresh-token + revocation list (Redis) once the app needs shorter-lived access tokens.
 - Move query execution to an async job pattern (submit → poll/webhook) if target datasets or LLM latency grow beyond a synchronous request budget.
 - Multi-datasource support: a `data_source` entity so users can point the assistant at different target databases (credentials encrypted, stored via Key Vault references).
-- Swap/add LLM providers (Azure OpenAI, Anthropic) with minimal change, since Spring AI's `ChatClient` abstraction is already provider-agnostic.
+- Swap/add LLM providers with minimal change, since Spring AI's `ChatClient` abstraction is already provider-agnostic — already exercised in practice: the app currently points the OpenAI client at Groq's OpenAI-compatible endpoint rather than a dedicated provider integration.
 - Read replica for `app` schema once `query_history` grows large; partition/archive old history.
