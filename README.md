@@ -47,6 +47,19 @@ Backend starts on `http://localhost:8080`.
 
 Integration tests spin up real PostgreSQL via Testcontainers and are run in CI (GitHub Actions); they don't require Docker on every contributor's machine.
 
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Starts on `http://localhost:5173` by default. Talks to the backend at `http://localhost:8080`
+unless `VITE_API_BASE_URL` is set (copy `.env.example` to `.env` to override) — make sure the
+backend's `CORS_ALLOWED_ORIGINS` includes whatever origin the frontend actually runs on if you
+change the port.
+
 ## Project Status
 
 Building module by module — see the roadmap in [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -59,6 +72,6 @@ Building module by module — see the roadmap in [ARCHITECTURE.md](ARCHITECTURE.
 - [x] Module 5 — SQL execution engine
 - [x] Module 6 — SQL explanation
 - [x] Module 7 — History & favorites API
-- [ ] Module 8 — Frontend
+- [x] Module 8 — Frontend
 - [ ] Module 9 — Docker & CI/CD
 - [ ] Module 10 — Azure deployment
