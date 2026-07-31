@@ -56,7 +56,7 @@ Building module by module — see the roadmap in [ARCHITECTURE.md](ARCHITECTURE.
 - [x] Module 2 — Query history & favorites data model
 - [x] Module 3 — Natural language to SQL
 - [x] Module 4 — SQL validation
-- [ ] Module 5 — SQL execution engine
+- [x] Module 5 — SQL execution engine
 - [ ] Module 6 — SQL explanation
 - [ ] Module 7 — History & favorites API
 - [ ] Module 8 — Frontend

@@ -22,6 +22,19 @@ spring:
           temperature: 0.0
 
 app:
+  datasource:
+    readonly:
+      # Default: same connection as the primary test datasource (itself
+      # dynamically overridden per test by AbstractIntegrationTest). Tests
+      # that need to exercise the *real* restricted role override
+      # username/password directly via their own @DynamicPropertySource -
+      # see SqlExecutorServiceImplTest.
+      url: ${spring.datasource.url}
+      username: ${spring.datasource.username}
+      password: ${spring.datasource.password}
+  query-execution:
+    timeout-seconds: 2
+    max-rows: 5
   jwt:
     secret: test-only-secret-key-for-integration-tests-not-used-anywhere-else-ever
     access-token-expiration-ms: 900000

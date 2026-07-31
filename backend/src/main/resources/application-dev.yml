@@ -32,6 +32,18 @@ spring:
           temperature: 0.0
 
 app:
+  datasource:
+    readonly:
+      url: jdbc:postgresql://localhost:5432/sqlgenie
+      username: readonly_query_user
+      password: ${READONLY_DB_PASSWORD:readonly_query_password}
+      # DB-level backstop behind JdbcTemplate's own query timeout below -
+      # even if the JDBC-level cancel somehow failed, Postgres itself kills
+      # the query. Keep this in sync with query-execution.timeout-seconds.
+      connection-init-sql: "SET statement_timeout = 5000"
+  query-execution:
+    timeout-seconds: 5
+    max-rows: 500
   jwt:
     # Dev-only default. In every real environment this MUST come from an env var / Key Vault.
     secret: ${JWT_SECRET:dev-only-insecure-secret-key-change-me-please-32bytes-min}
