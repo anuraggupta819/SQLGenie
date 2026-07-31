@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
@@ -45,7 +46,10 @@ public class QueryHistoryServiceImpl implements QueryHistoryService {
     }
 
     @Override
+    @Transactional
     public void deleteHistory(UUID userId, UUID historyId) {
+        // See FavoriteQueryServiceImpl.deleteFavorite - custom derived delete
+        // methods need an explicit transaction, unlike inherited CrudRepository ones.
         queryHistoryRepository.findByIdAndUserId(historyId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("No history entry found with that id"));
         queryHistoryRepository.deleteByIdAndUserId(historyId, userId);

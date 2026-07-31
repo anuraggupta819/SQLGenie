@@ -108,6 +108,37 @@ class QueryAndFavoriteControllerIntegrationTest extends AbstractIntegrationTest 
     }
 
     @Test
+    void queryHistory_canBeDeletedByOwner() throws Exception {
+        String token = registerAndGetToken("history-delete@example.com");
+        when(callResponseSpec.entity(GeneratedSql.class)).thenReturn(
+                new GeneratedSql("SELECT id FROM target.customers", "Returns customer ids."));
+
+        mockMvc.perform(post("/api/v1/queries")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(Map.of("question", "to be deleted"))))
+                .andExpect(status().isOk());
+
+        String historyBody = mockMvc.perform(get("/api/v1/queries/history")
+                        .header("Authorization", "Bearer " + token))
+                .andReturn().getResponse().getContentAsString();
+        String historyId = objectMapper.readTree(historyBody).get("content").get(0).get("id").asText();
+
+        mockMvc.perform(delete("/api/v1/queries/history/" + historyId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/queries/history")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isEmpty());
+
+        mockMvc.perform(delete("/api/v1/queries/history/" + historyId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void queryHistory_isIsolatedPerUser() throws Exception {
         String tokenA = registerAndGetToken("history-user-a@example.com");
         String tokenB = registerAndGetToken("history-user-b@example.com");
