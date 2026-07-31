@@ -58,7 +58,7 @@ Building module by module — see the roadmap in [ARCHITECTURE.md](ARCHITECTURE.
 - [x] Module 4 — SQL validation
 - [x] Module 5 — SQL execution engine
 - [x] Module 6 — SQL explanation
-- [ ] Module 7 — History & favorites API
+- [x] Module 7 — History & favorites API
 - [ ] Module 8 — Frontend
 - [ ] Module 9 — Docker & CI/CD
 - [ ] Module 10 — Azure deployment

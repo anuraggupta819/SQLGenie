@@ -12,5 +12,7 @@ public interface FavoriteQueryRepository extends JpaRepository<FavoriteQuery, UU
 
     boolean existsByUserIdAndName(UUID userId, String name);
 
+    boolean existsByIdAndUserId(UUID id, UUID userId);
+
     void deleteByIdAndUserId(UUID id, UUID userId);
 }
