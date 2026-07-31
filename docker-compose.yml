@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sqlgenie-postgres
+    environment:
+      POSTGRES_DB: sqlgenie
+      POSTGRES_USER: app_owner
+      POSTGRES_PASSWORD: app_owner_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_owner -d sqlgenie"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

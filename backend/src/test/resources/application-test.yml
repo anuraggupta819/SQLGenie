@@ -1,0 +1,20 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: app
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    schemas: app
+    default-schema: app
+
+app:
+  jwt:
+    secret: test-only-secret-key-for-integration-tests-not-used-anywhere-else-ever
+    access-token-expiration-ms: 900000
+    refresh-token-expiration-ms: 604800000
