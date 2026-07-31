@@ -1,6 +1,7 @@
 package com.anuraggupta.sqlgenie.config;
 
 import com.zaxxer.hikari.HikariDataSource;
+import jakarta.persistence.EntityManagerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
@@ -10,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
@@ -72,5 +74,18 @@ public class DataSourceConfig {
     public PlatformTransactionManager readOnlyTransactionManager(
             @Qualifier("readOnlyDataSource") DataSource readOnlyDataSource) {
         return new DataSourceTransactionManager(readOnlyDataSource);
+    }
+
+    // Adding readOnlyTransactionManager above trips Spring Boot's
+    // @ConditionalOnMissingBean(TransactionManager.class), so it silently
+    // stops creating JPA's own "transactionManager" bean - breaking every
+    // plain @Transactional method (no explicit manager named) elsewhere in
+    // the app, e.g. AuthServiceImpl. Re-declaring it explicitly, named and
+    // @Primary, restores the default @Transactional resolution everyone
+    // else already depends on.
+    @Primary
+    @Bean(name = "transactionManager")
+    public PlatformTransactionManager transactionManager(EntityManagerFactory entityManagerFactory) {
+        return new JpaTransactionManager(entityManagerFactory);
     }
 }
