@@ -13,8 +13,14 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers
 public abstract class AbstractIntegrationTest {
 
+    // withInitScript runs once, right after the container starts and before
+    // Spring/Flyway ever connects - creates readonly_query_user so
+    // V5__grant_readonly_role_access.sql (which every test's Flyway run
+    // executes) doesn't fail with "role does not exist" in tests that never
+    // otherwise touch that role.
     @Container
-    protected static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+    protected static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
+            .withInitScript("testcontainers-init.sql");
 
     @DynamicPropertySource
     static void registerDatasourceProperties(DynamicPropertyRegistry registry) {

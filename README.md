@@ -20,9 +20,10 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full system design.
 
 ### Database setup (one-time)
 
-1. Run the superuser block from [`backend/scripts/local-db-setup.sql`](backend/scripts/local-db-setup.sql) (creates `app_owner`, the `sqlgenie` database, and `readonly_query_user`).
-2. Start the app once (`./mvnw spring-boot:run`) so Flyway creates the `app` and `target` schemas.
-3. Run the second block of the same script (as `app_owner`, connected to `sqlgenie`) to grant `readonly_query_user` read-only access to `target` only.
+Run [`backend/scripts/local-db-setup.sql`](backend/scripts/local-db-setup.sql) as a superuser
+(e.g. `psql -U postgres`) — creates `app_owner`, the `sqlgenie` database, and
+`readonly_query_user`. Its actual read-only grants are applied automatically by a Flyway
+migration the first time the app starts, so there's nothing further to run manually.
 
 ### Run
 
@@ -46,6 +47,17 @@ Backend starts on `http://localhost:8080`.
 ```
 
 Integration tests spin up real PostgreSQL via Testcontainers and are run in CI (GitHub Actions); they don't require Docker on every contributor's machine.
+
+### Full stack via Docker Compose
+
+```bash
+export GROQ_API_KEY=your-key-here   # optional - stack still boots without it
+docker compose up --build
+```
+
+Starts Postgres (with `readonly_query_user` created automatically), the backend on
+`http://localhost:8080`, and the frontend on `http://localhost:5173`. CI builds and
+smoke-tests this exact stack on every push that touches backend, frontend, or Docker config.
 
 ### Frontend
 
@@ -73,5 +85,5 @@ Building module by module — see the roadmap in [ARCHITECTURE.md](ARCHITECTURE.
 - [x] Module 6 — SQL explanation
 - [x] Module 7 — History & favorites API
 - [x] Module 8 — Frontend
-- [ ] Module 9 — Docker & CI/CD
+- [x] Module 9 — Docker & CI/CD
 - [ ] Module 10 — Azure deployment

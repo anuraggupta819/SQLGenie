@@ -3,50 +3,28 @@ package com.anuraggupta.sqlgenie.service.sql;
 import com.anuraggupta.sqlgenie.config.AbstractIntegrationTest;
 import com.anuraggupta.sqlgenie.exception.QueryExecutionException;
 import com.anuraggupta.sqlgenie.exception.UnsafeSqlException;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
-
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Runs against the real, database-enforced readonly_query_user role - not
- * just the test container's default superuser - by creating that role
- * dynamically (mirroring backend/scripts/local-db-setup.sql) before the
- * first test. This is what lets execute_enforcesStatementTimeout below
- * prove the timeout actually cancels a running query, not just that a
- * config value is set.
+ * just the test container's default superuser. The role and its grants
+ * (AbstractIntegrationTest's init script + V5__grant_readonly_role_access.sql)
+ * are already in place by the time any test runs. This is what lets
+ * execute_enforcesStatementTimeout below prove the timeout actually cancels
+ * a running query, not just that a config value is set.
  */
 @SpringBootTest
 @ActiveProfiles("test")
 class SqlExecutorServiceImplTest extends AbstractIntegrationTest {
 
-    private static final AtomicBoolean READONLY_ROLE_READY = new AtomicBoolean(false);
-
     @Autowired
     private SqlExecutorService sqlExecutorService;
-
-    @BeforeEach
-    void ensureReadOnlyRoleExists() throws SQLException {
-        if (READONLY_ROLE_READY.compareAndSet(false, true)) {
-            try (Connection conn = DriverManager.getConnection(
-                    POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
-                 Statement stmt = conn.createStatement()) {
-                stmt.execute("CREATE ROLE readonly_query_user LOGIN PASSWORD 'readonly_query_password'");
-                stmt.execute("GRANT USAGE ON SCHEMA target TO readonly_query_user");
-                stmt.execute("GRANT SELECT ON ALL TABLES IN SCHEMA target TO readonly_query_user");
-            }
-        }
-    }
 
     @Test
     void execute_returnsColumnsAndRows_forValidQuery() {

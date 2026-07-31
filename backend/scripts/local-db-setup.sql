@@ -1,23 +1,14 @@
--- One-time local Postgres setup. Run the first block as a superuser
--- (e.g. `psql -U postgres`), then the second block connected to the
--- sqlgenie database as app_owner (it must own the target schema/tables
--- for ALTER DEFAULT PRIVILEGES to apply to future migrations).
+-- One-time local Postgres setup. Run as a superuser (e.g. `psql -U postgres`).
 --
 -- Not run automatically by Flyway: role creation requires superuser
--- privileges the application's own database role does not have.
-
--- ===== Run as superuser =====
+-- privileges the application's own database role does not have. The actual
+-- readonly_query_user grants (USAGE on target, SELECT on its tables) are
+-- handled automatically by V5__grant_readonly_role_access.sql the first
+-- time the app starts against this database - nothing further to run here.
 CREATE ROLE app_owner LOGIN PASSWORD 'app_owner_password';
 CREATE DATABASE sqlgenie OWNER app_owner;
 CREATE ROLE readonly_query_user LOGIN PASSWORD 'readonly_query_password';
 
--- ===== Run connected to `sqlgenie` as app_owner, AFTER Flyway has
---       created the target schema (i.e. after the app has started once) =====
-GRANT USAGE ON SCHEMA target TO readonly_query_user;
-GRANT SELECT ON ALL TABLES IN SCHEMA target TO readonly_query_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA target GRANT SELECT ON TABLES TO readonly_query_user;
-
--- Explicit, even though it's the Postgres default: readonly_query_user
--- is never granted anything on the app schema, so it cannot see users,
--- query_history, refresh_tokens, or favorite_queries under any circumstance.
-REVOKE ALL ON SCHEMA app FROM readonly_query_user;
+-- No REVOKE ON SCHEMA app needed here (nor possible yet - that schema
+-- doesn't exist until Flyway's first migration runs): readonly_query_user
+-- is simply never granted anything there, and Postgres denies by default.

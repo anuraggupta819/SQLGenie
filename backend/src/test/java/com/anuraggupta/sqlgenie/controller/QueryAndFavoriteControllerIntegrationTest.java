@@ -14,12 +14,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -39,8 +34,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class QueryAndFavoriteControllerIntegrationTest extends AbstractIntegrationTest {
 
-    private static final AtomicBoolean READONLY_ROLE_READY = new AtomicBoolean(false);
-
     @Autowired
     private MockMvc mockMvc;
     @Autowired
@@ -52,17 +45,7 @@ class QueryAndFavoriteControllerIntegrationTest extends AbstractIntegrationTest 
     private ChatClient.CallResponseSpec callResponseSpec;
 
     @BeforeEach
-    void setUp() throws SQLException {
-        if (READONLY_ROLE_READY.compareAndSet(false, true)) {
-            try (Connection conn = DriverManager.getConnection(
-                    POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
-                 Statement stmt = conn.createStatement()) {
-                stmt.execute("CREATE ROLE readonly_query_user LOGIN PASSWORD 'readonly_query_password'");
-                stmt.execute("GRANT USAGE ON SCHEMA target TO readonly_query_user");
-                stmt.execute("GRANT SELECT ON ALL TABLES IN SCHEMA target TO readonly_query_user");
-            }
-        }
-
+    void setUp() {
         requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
         callResponseSpec = mock(ChatClient.CallResponseSpec.class);
         lenient().when(chatClient.prompt()).thenReturn(requestSpec);
