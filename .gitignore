@@ -25,3 +25,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Personal notes - not part of the public repo
+INTERVIEW_PREP.md

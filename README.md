@@ -57,7 +57,7 @@ Building module by module — see the roadmap in [ARCHITECTURE.md](ARCHITECTURE.
 - [x] Module 3 — Natural language to SQL
 - [x] Module 4 — SQL validation
 - [x] Module 5 — SQL execution engine
-- [ ] Module 6 — SQL explanation
+- [x] Module 6 — SQL explanation
 - [ ] Module 7 — History & favorites API
 - [ ] Module 8 — Frontend
 - [ ] Module 9 — Docker & CI/CD
