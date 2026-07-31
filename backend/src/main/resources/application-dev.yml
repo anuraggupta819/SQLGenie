@@ -19,6 +19,17 @@ spring:
     schemas: app
     default-schema: app
 
+  ai:
+    openai:
+      # No real key configured yet - the app still boots and unit tests still
+      # pass (they mock ChatClient), but any live call will fail with an auth
+      # error until a real OPENAI_API_KEY is exported.
+      api-key: ${OPENAI_API_KEY:sk-not-configured}
+      chat:
+        options:
+          model: gpt-4o-mini
+          temperature: 0.0
+
 app:
   jwt:
     # Dev-only default. In every real environment this MUST come from an env var / Key Vault.

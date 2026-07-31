@@ -13,6 +13,14 @@ spring:
     schemas: app
     default-schema: app
 
+  ai:
+    openai:
+      api-key: sk-test-not-a-real-key
+      chat:
+        options:
+          model: gpt-4o-mini
+          temperature: 0.0
+
 app:
   jwt:
     secret: test-only-secret-key-for-integration-tests-not-used-anywhere-else-ever

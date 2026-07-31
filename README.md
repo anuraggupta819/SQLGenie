@@ -36,6 +36,7 @@ Backend starts on `http://localhost:8080`.
 - Health check: `GET /actuator/health`
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - A dev-only admin account is seeded automatically (`admin@sqlgenie.dev` — see `application-dev.yml` for the password default; override via `ADMIN_SEED_PASSWORD`).
+- The app boots without an OpenAI key, but natural-language-to-SQL calls need one: export `OPENAI_API_KEY` before running.
 
 ### Tests
 
@@ -53,7 +54,7 @@ Building module by module — see the roadmap in [ARCHITECTURE.md](ARCHITECTURE.
 - [x] Module 0 — Project foundation
 - [x] Module 1 — JWT authentication
 - [x] Module 2 — Query history & favorites data model
-- [ ] Module 3 — Natural language to SQL
+- [x] Module 3 — Natural language to SQL
 - [ ] Module 4 — SQL validation
 - [ ] Module 5 — SQL execution engine
 - [ ] Module 6 — SQL explanation
