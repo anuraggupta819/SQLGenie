@@ -20,10 +20,9 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full system design.
 
 ### Database setup (one-time)
 
-```sql
-CREATE ROLE app_owner LOGIN PASSWORD 'app_owner_password';
-CREATE DATABASE sqlgenie OWNER app_owner;
-```
+1. Run the superuser block from [`backend/scripts/local-db-setup.sql`](backend/scripts/local-db-setup.sql) (creates `app_owner`, the `sqlgenie` database, and `readonly_query_user`).
+2. Start the app once (`./mvnw spring-boot:run`) so Flyway creates the `app` and `target` schemas.
+3. Run the second block of the same script (as `app_owner`, connected to `sqlgenie`) to grant `readonly_query_user` read-only access to `target` only.
 
 ### Run
 
