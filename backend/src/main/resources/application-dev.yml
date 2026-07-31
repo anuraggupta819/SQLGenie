@@ -32,6 +32,8 @@ spring:
           temperature: 0.0
 
 app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
   datasource:
     readonly:
       url: jdbc:postgresql://localhost:5432/sqlgenie

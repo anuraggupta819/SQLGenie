@@ -22,6 +22,8 @@ spring:
           temperature: 0.0
 
 app:
+  cors:
+    allowed-origins: http://localhost:5173
   datasource:
     readonly:
       # Default: same connection as the primary test datasource (itself
