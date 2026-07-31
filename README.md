@@ -53,7 +53,7 @@ Building module by module — see the roadmap in [ARCHITECTURE.md](ARCHITECTURE.
 
 - [x] Module 0 — Project foundation
 - [x] Module 1 — JWT authentication
-- [ ] Module 2 — Query history & favorites data model
+- [x] Module 2 — Query history & favorites data model
 - [ ] Module 3 — Natural language to SQL
 - [ ] Module 4 — SQL validation
 - [ ] Module 5 — SQL execution engine
