@@ -13,8 +13,11 @@
 // Apps Environment requires one) - low-volume demo traffic stays well
 // within Azure Monitor's free 5GB/month allowance.
 
-@description('Azure region for all resources')
+@description('Azure region for the Container Apps environment, backend app, and Log Analytics')
 param location string = resourceGroup().location
+
+@description('Azure region for the Static Web App - a much shorter allow-list than most resource types (e.g. centralus, eastus2, westus2, westeurope, eastasia), so it is deliberately independent of "location" rather than assumed to match it')
+param staticWebAppLocation string = 'centralus'
 
 @description('Base name used to derive resource names')
 param appName string = 'sqlgenie'
@@ -83,7 +86,7 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
 
 resource staticWebApp 'Microsoft.Web/staticSites@2022-09-01' = {
   name: '${appName}-frontend'
-  location: location
+  location: staticWebAppLocation
   sku: {
     name: 'Free'
     tier: 'Free'
