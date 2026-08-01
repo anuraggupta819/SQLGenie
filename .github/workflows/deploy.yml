@@ -9,6 +9,9 @@ on:
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/sqlgenie-backend
   RESOURCE_GROUP: sqlgenie-rg
+  # Backend deploys directly into the resource group of the shared Container
+  # Apps Environment it joins (see infra/backend.bicep header comment for why).
+  BACKEND_RESOURCE_GROUP: cartify-rg
 
 jobs:
   deploy:
@@ -52,12 +55,26 @@ jobs:
       - name: Ensure resource group exists
         run: az group create --name "$RESOURCE_GROUP" --location "${{ secrets.AZURE_LOCATION }}"
 
-      - name: Deploy infrastructure
-        id: deploy
+      - name: Deploy frontend infrastructure
+        id: deploy-frontend
         run: |
           az deployment group create \
             --resource-group "$RESOURCE_GROUP" \
-            --template-file infra/main.bicep \
+            --template-file infra/frontend.bicep \
+            --name frontend
+
+          FRONTEND_URL=$(az deployment group show \
+            --resource-group "$RESOURCE_GROUP" --name frontend \
+            --query properties.outputs.frontendUrl.value -o tsv)
+          echo "frontend_url=$FRONTEND_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy backend infrastructure
+        id: deploy-backend
+        run: |
+          az deployment group create \
+            --resource-group "$BACKEND_RESOURCE_GROUP" \
+            --template-file infra/backend.bicep \
+            --name backend \
             --parameters \
               backendImage="${{ env.IMAGE_NAME }}:${{ github.sha }}" \
               ghcrUsername="${{ github.actor }}" \
@@ -69,10 +86,11 @@ jobs:
               readonlyDbUsername="${{ secrets.NEON_READONLY_DB_USERNAME }}" \
               readonlyDbPassword="${{ secrets.NEON_READONLY_DB_PASSWORD }}" \
               jwtSecret="${{ secrets.PROD_JWT_SECRET }}" \
-              groqApiKey="${{ secrets.GROQ_API_KEY }}"
+              groqApiKey="${{ secrets.GROQ_API_KEY }}" \
+              corsAllowedOrigin="${{ steps.deploy-frontend.outputs.frontend_url }}"
 
           BACKEND_URL=$(az deployment group show \
-            --resource-group "$RESOURCE_GROUP" --name main \
+            --resource-group "$BACKEND_RESOURCE_GROUP" --name backend \
             --query properties.outputs.backendUrl.value -o tsv)
           echo "backend_url=$BACKEND_URL" >> "$GITHUB_OUTPUT"
 
@@ -91,7 +109,7 @@ jobs:
           npm ci
           npm run build
         env:
-          VITE_API_BASE_URL: ${{ steps.deploy.outputs.backend_url }}
+          VITE_API_BASE_URL: ${{ steps.deploy-backend.outputs.backend_url }}
 
       - name: Deploy frontend to Static Web Apps
         uses: Azure/static-web-apps-deploy@v1

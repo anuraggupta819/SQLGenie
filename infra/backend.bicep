@@ -1,40 +1,40 @@
-// SQLGenie deployment, designed to stay within Azure's perpetual free tiers:
-// - Container Apps: real, ongoing free monthly grant (not a 12-month trial),
-//   easily enough for a low-traffic demo when the app scales to zero when idle.
-// - Static Web Apps: genuine perpetual Free SKU.
-// - No Key Vault (Container Apps' own built-in secrets are used instead -
-//   skips even Key Vault's small per-operation cost; fine for one app,
-//   would reconsider for multiple services sharing secrets).
-// - No Azure Container Registry (GHCR is free for public images).
-// - No Azure-managed Postgres (Flexible Server has no perpetual free SKU) -
-//   the database is external (Neon), the backend just connects to it.
+// SQLGenie backend: a Container App using Azure's real, ongoing free monthly
+// grant (not a 12-month trial) - easily enough for a low-traffic demo when
+// the app scales to zero when idle.
 //
 // This subscription is a Free Trial, which caps Container Apps Environments
 // at 1 *per subscription*, not per region - a hard anti-abuse limit that
-// isn't liftable via a normal quota-increase request on this subscription
-// tier. Rather than create a second environment (which the subscription
-// would reject) or move the database/JWT-signing project boundary around to
-// dodge it, this template joins the existing shared environment from
-// another project on the same subscription. Each app inside a Container
-// Apps Environment still gets its own container, scaling, secrets, and
-// revision history - only the environment (the compute/network boundary,
-// and its one Log Analytics workspace) is shared. This template therefore
-// creates no Log Analytics workspace or managed environment of its own.
+// isn't liftable via a normal quota-increase request on this tier. Rather
+// than fight that limit, this template joins the environment from another
+// project (Cartify) already on this subscription instead of provisioning
+// its own - each app still gets its own container, scaling, secrets, and
+// revision history; only the environment (the compute/network boundary,
+// and its Log Analytics workspace) is shared.
+//
+// Cross-resource-group joins to that environment (deploying to sqlgenie-rg
+// while referencing an environment in cartify-rg) consistently failed
+// ManagedEnvironmentNotFound/LinkedAuthorizationFailed even after granting
+// Contributor at both the single-resource and resource-group scope on
+// cartify-rg - almost certainly the same tenant-specific RBAC quirk that
+// also breaks the Azure CLI's --scope flag on this account (see
+// INTERVIEW_PREP.md hurdle #15). Deploying this template *directly into
+// cartify-rg* instead sidesteps the cross-RG authorization path entirely by
+// making it a same-scope deployment, which is why the backend Container App
+// resource physically lives in cartify-rg rather than sqlgenie-rg.
+//
+// No Azure Container Registry (GHCR is free for public images). No
+// Azure-managed Postgres (Flexible Server has no perpetual free SKU) - the
+// database is external (Neon), the backend just connects to it. No Key
+// Vault - Container Apps' own built-in secrets are used instead.
 
-@description('Azure region for the backend Container App')
-param location string = resourceGroup().location
-
-@description('Azure region for the Static Web App - a much shorter allow-list than most resource types (e.g. centralus, eastus2, westus2, westeurope, eastasia), so it is deliberately independent of "location" rather than assumed to match it')
-param staticWebAppLocation string = 'centralus'
-
-@description('Resource group of the pre-existing Container Apps Environment this app joins (shared across projects due to the Free Trial subscription\'s 1-environment-per-subscription cap)')
-param sharedEnvironmentResourceGroup string = 'cartify-rg'
-
-@description('Name of the pre-existing Container Apps Environment this app joins')
-param sharedEnvironmentName string = 'cartify-env'
+@description('Azure region for the backend Container App - must match the shared environment\'s region')
+param location string = 'eastus2'
 
 @description('Base name used to derive resource names')
 param appName string = 'sqlgenie'
+
+@description('Name of the pre-existing Container Apps Environment (in this same resource group) that this app joins')
+param sharedEnvironmentName string = 'cartify-env'
 
 @description('Full GHCR image reference for the backend, e.g. ghcr.io/anuraggupta819/sqlgenie-backend:latest')
 param backendImage string
@@ -73,27 +73,18 @@ param jwtSecret string
 @secure()
 param groqApiKey string
 
-resource staticWebApp 'Microsoft.Web/staticSites@2022-09-01' = {
-  name: '${appName}-frontend'
-  location: staticWebAppLocation
-  sku: {
-    name: 'Free'
-    tier: 'Free'
-  }
-  properties: {
-    // Content is deployed separately via GitHub Actions (Azure/static-web-apps-deploy),
-    // not provisioned by this template - this just creates the hosting resource.
-    buildProperties: {
-      skipGithubActionWorkflowGeneration: true
-    }
-  }
+@description('The frontend Static Web App URL, for CORS')
+param corsAllowedOrigin string
+
+resource sharedEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' existing = {
+  name: sharedEnvironmentName
 }
 
 resource backendApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: '${appName}-backend'
   location: location
   properties: {
-    managedEnvironmentId: resourceId(sharedEnvironmentResourceGroup, 'Microsoft.App/managedEnvironments', sharedEnvironmentName)
+    managedEnvironmentId: sharedEnvironment.id
     configuration: {
       ingress: {
         external: true
@@ -135,7 +126,7 @@ resource backendApp 'Microsoft.App/containerApps@2023-05-01' = {
             { name: 'APP_DATASOURCE_READONLY_PASSWORD', secretRef: 'readonly-db-password' }
             { name: 'APP_JWT_SECRET', secretRef: 'jwt-secret' }
             { name: 'GROQ_API_KEY', secretRef: 'groq-api-key' }
-            { name: 'APP_CORS_ALLOWED_ORIGINS', value: 'https://${staticWebApp.properties.defaultHostname}' }
+            { name: 'APP_CORS_ALLOWED_ORIGINS', value: corsAllowedOrigin }
           ]
           probes: [
             {
@@ -163,9 +154,3 @@ resource backendApp 'Microsoft.App/containerApps@2023-05-01' = {
 }
 
 output backendUrl string = 'https://${backendApp.properties.configuration.ingress.fqdn}'
-output frontendUrl string = 'https://${staticWebApp.properties.defaultHostname}'
-
-// Deliberately no output for the Static Web App's deployment token - Bicep
-// outputs land in plaintext in deployment history. The deploy workflow
-// fetches it separately via `az staticwebapp secrets list` after this
-// template has run, not through this template's outputs.
