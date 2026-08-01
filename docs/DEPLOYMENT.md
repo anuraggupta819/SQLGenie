@@ -69,8 +69,10 @@ is provided automatically by Actions — nothing to add for that one.
 ## 2. Deploy
 
 Actions tab → **Deploy to Azure** → **Run workflow**. This builds and pushes the backend image
-to GHCR, deploys `infra/main.bicep` (creates the Container Apps environment, the backend
-Container App, and the Static Web App), then builds and deploys the frontend.
+to GHCR, deploys `infra/main.bicep` (creates the backend Container App and the Static Web App),
+then builds and deploys the frontend. The backend joins an existing Container Apps Environment
+rather than creating its own — see the header comment in `infra/main.bicep` for why (this
+subscription's Free Trial tier caps Container Apps Environments at 1 per subscription).
 
 Re-running the same workflow later updates the deployment in place — Bicep deployments are
 idempotent, and a new backend image just creates a new Container App revision.

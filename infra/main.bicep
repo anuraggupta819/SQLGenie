@@ -9,15 +9,29 @@
 // - No Azure-managed Postgres (Flexible Server has no perpetual free SKU) -
 //   the database is external (Neon), the backend just connects to it.
 //
-// Log Analytics is the one resource this template can't avoid (Container
-// Apps Environment requires one) - low-volume demo traffic stays well
-// within Azure Monitor's free 5GB/month allowance.
+// This subscription is a Free Trial, which caps Container Apps Environments
+// at 1 *per subscription*, not per region - a hard anti-abuse limit that
+// isn't liftable via a normal quota-increase request on this subscription
+// tier. Rather than create a second environment (which the subscription
+// would reject) or move the database/JWT-signing project boundary around to
+// dodge it, this template joins the existing shared environment from
+// another project on the same subscription. Each app inside a Container
+// Apps Environment still gets its own container, scaling, secrets, and
+// revision history - only the environment (the compute/network boundary,
+// and its one Log Analytics workspace) is shared. This template therefore
+// creates no Log Analytics workspace or managed environment of its own.
 
-@description('Azure region for the Container Apps environment, backend app, and Log Analytics')
+@description('Azure region for the backend Container App')
 param location string = resourceGroup().location
 
 @description('Azure region for the Static Web App - a much shorter allow-list than most resource types (e.g. centralus, eastus2, westus2, westeurope, eastasia), so it is deliberately independent of "location" rather than assumed to match it')
 param staticWebAppLocation string = 'centralus'
+
+@description('Resource group of the pre-existing Container Apps Environment this app joins (shared across projects due to the Free Trial subscription\'s 1-environment-per-subscription cap)')
+param sharedEnvironmentResourceGroup string = 'cartify-rg'
+
+@description('Name of the pre-existing Container Apps Environment this app joins')
+param sharedEnvironmentName string = 'cartify-env'
 
 @description('Base name used to derive resource names')
 param appName string = 'sqlgenie'
@@ -59,31 +73,6 @@ param jwtSecret string
 @secure()
 param groqApiKey string
 
-resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
-  name: '${appName}-logs'
-  location: location
-  properties: {
-    sku: {
-      name: 'PerGB2018'
-    }
-    retentionInDays: 30
-  }
-}
-
-resource containerAppEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
-  name: '${appName}-env'
-  location: location
-  properties: {
-    appLogsConfiguration: {
-      destination: 'log-analytics'
-      logAnalyticsConfiguration: {
-        customerId: logAnalytics.properties.customerId
-        sharedKey: logAnalytics.listKeys().primarySharedKey
-      }
-    }
-  }
-}
-
 resource staticWebApp 'Microsoft.Web/staticSites@2022-09-01' = {
   name: '${appName}-frontend'
   location: staticWebAppLocation
@@ -104,7 +93,7 @@ resource backendApp 'Microsoft.App/containerApps@2023-05-01' = {
   name: '${appName}-backend'
   location: location
   properties: {
-    managedEnvironmentId: containerAppEnv.id
+    managedEnvironmentId: resourceId(sharedEnvironmentResourceGroup, 'Microsoft.App/managedEnvironments', sharedEnvironmentName)
     configuration: {
       ingress: {
         external: true
