@@ -84,18 +84,26 @@ idempotent, and a new backend image just creates a new Container App revision.
 
 ## 3. Verify it's actually free
 
-- Azure Portal → Cost Management → Cost analysis, scoped to the `sqlgenie-rg` resource group.
+- Azure Portal → Cost Management → Cost analysis, scoped to the `sqlgenie-rg` resource group
+  (frontend) and separately to `cartify-rg` (backend — shared with the Cartify project, so filter
+  by resource name `sqlgenie-backend` there rather than reading the whole resource group's cost).
 - Consider setting a budget alert (Cost Management → Budgets) at a low threshold (e.g. $1) as a
   safety net — should never fire given the architecture, but costs nothing to have.
-- The backend scales to zero when idle (`minReplicas: 0` in `main.bicep`) — the only way to
+- The backend scales to zero when idle (`minReplicas: 0` in `backend.bicep`) — the only way to
   exceed the Container Apps free grant would be sustained heavy traffic, not an idle demo app.
 
 ## 4. Tear down
 
-When you're done demoing and want to guarantee zero footprint:
+The backend lives in `cartify-rg` (shared with another project — see `infra/backend.bicep`'s
+header comment for why), so tearing down `sqlgenie-rg` alone is **not** enough; it only removes
+the frontend and leaves the backend Container App running indefinitely in `cartify-rg`. To
+actually reach zero footprint:
 
 ```bash
+az containerapp delete --name sqlgenie-backend --resource-group cartify-rg --yes
 az group delete --name sqlgenie-rg --yes
 ```
 
-Neon's project can similarly be deleted from its dashboard if you want the database gone too.
+The first command removes only SQLGenie's Container App — `cartify-env` and anything belonging
+to the Cartify project in `cartify-rg` are untouched. Neon's project can similarly be deleted
+from its dashboard if you want the database gone too.

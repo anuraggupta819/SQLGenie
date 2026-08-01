@@ -2,6 +2,9 @@
 
 Converts natural language into SQL, validates it as read-only, executes it against PostgreSQL, explains it in plain English, and tracks query history and favorites.
 
+**Live:** [thankful-field-07d0c7910.7.azurestaticapps.net](https://thankful-field-07d0c7910.7.azurestaticapps.net)
+(the backend scales to zero when idle, so the first request after a quiet period takes a few seconds to warm up)
+
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full system design.
 
 ## Tech Stack
