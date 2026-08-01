@@ -72,6 +72,14 @@ unless `VITE_API_BASE_URL` is set (copy `.env.example` to `.env` to override) �
 backend's `CORS_ALLOWED_ORIGINS` includes whatever origin the frontend actually runs on if you
 change the port.
 
+## Deployment
+
+Deploys to Azure at zero ongoing cost (Container Apps' free grant, Static Web Apps' free tier,
+no Key Vault/managed Postgres/Container Registry). Infrastructure is Bicep
+([`infra/main.bicep`](infra/main.bicep)); step-by-step setup is in
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md). Nothing is provisioned automatically — the deploy
+workflow is manually triggered once the one-time setup in that doc is done.
+
 ## Project Status
 
 Building module by module — see the roadmap in [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -86,4 +94,4 @@ Building module by module — see the roadmap in [ARCHITECTURE.md](ARCHITECTURE.
 - [x] Module 7 — History & favorites API
 - [x] Module 8 — Frontend
 - [x] Module 9 — Docker & CI/CD
-- [ ] Module 10 — Azure deployment
+- [x] Module 10 — Azure deployment

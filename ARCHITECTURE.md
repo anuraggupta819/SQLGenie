@@ -210,26 +210,43 @@ Key design choice: the SQL **and** its explanation are requested from the LLM pr
 flowchart LR
     subgraph GH["GitHub"]
         REPO2["Repo"]
-        ACT["GitHub Actions\nbuild, test, image push"]
+        ACT["GitHub Actions\n(manual trigger)"]
     end
     subgraph Registry["GHCR"]
-        IMG["backend image\nfrontend image"]
+        IMG["backend image"]
     end
-    subgraph Azure["Azure"]
-        SWA["Azure Static Web Apps\n(frontend)"]
-        ACA["Azure Container Apps\n(backend)"]
-        KV["Azure Key Vault\n(JWT secret, LLM API key, DB creds)"]
-        PG["Azure Database for PostgreSQL\nFlexible Server"]
-        AI2["Application Insights"]
+    subgraph Azure["Azure (free tiers only)"]
+        SWA["Azure Static Web Apps\n(frontend, Free SKU)"]
+        ACA["Azure Container Apps\n(backend, scale-to-zero)"]
+        LOGS["Log Analytics\n(Container Apps requirement)"]
+    end
+    subgraph External["External (free tier)"]
+        NEON["Neon Postgres"]
     end
 
     REPO2 --> ACT --> IMG --> ACA
-    ACT --> SWA
-    ACA -->|managed identity| KV
-    ACA -->|VNet private link| PG
-    ACA --> AI2
+    ACT -->|"deploy build output"| SWA
+    ACA -->|"built-in secrets\n(no Key Vault)"| ACA
+    ACA -->|"SSL, over the internet"| NEON
+    ACA --> LOGS
     SWA -->|HTTPS| ACA
 ```
+
+Deliberately built to run at **zero ongoing cost**, not just "cheap" — every resource choice here
+was picked against Azure's genuine perpetual free tiers, not a 12-month trial. Full rationale in
+[`infra/main.bicep`](../infra/main.bicep)'s header comment and step-by-step setup in
+[`docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md). Three deliberate deviations from a typical
+"textbook" Azure deployment, each documented rather than accidental:
+
+- **No Key Vault** — Container Apps' own built-in secrets are used instead. Fine for one
+  service; would reconsider if multiple services needed to share secrets centrally.
+- **No Azure-managed Postgres** — Flexible Server has no perpetual free SKU (only ~12 months of
+  trial credit on a new subscription). The database is external (Neon's free tier) instead; the
+  backend simply connects to it over the internet with SSL, same as it would to any managed
+  Postgres — a genuinely common pattern, not a compromise unique to this project.
+- **No Application Insights** — skipped to minimize the resource surface; Container Apps' own
+  log streaming (`az containerapp logs show`) covers debugging needs for a demo-scale deployment
+  without an extra resource to reason about.
 
 Same GHCR-based image registry pattern already used for the Cartify project, for consistency across your Azure deployments.
 
@@ -238,9 +255,9 @@ Same GHCR-based image registry pattern already used for the Cartify project, for
 - **Least privilege at the DB level** — the read-only role is the real backstop, not the application code.
 - **AST-based SQL validation** (JSqlParser), not regex — closes comment/encoding bypass tricks.
 - **Prompt injection assumption**: the natural-language input is untrusted and may try to manipulate the LLM into producing destructive or out-of-scope SQL. Mitigation is layered: (a) system prompt restricts the model to an explicit table/column allow-list, (b) the validator independently re-checks every output regardless of what the model claims, (c) the DB role physically cannot write or see `app` data even if both (a) and (b) were bypassed.
-- **JWT in httpOnly cookies**, `SameSite=Strict`, short expiry; CSRF protection required once cookies replace bearer headers (Spring Security `CookieCsrfTokenRepository`).
-- **Rate limiting** on `POST /queries` — bounds both abuse and LLM API cost (per-user token bucket).
-- **Secrets** (LLM API key, JWT secret, DB credentials) only ever in Azure Key Vault / environment config — never committed, never logged.
+- **JWT via `Authorization: Bearer` header**, stored client-side (not httpOnly cookies — decided in Module 1: simpler to exercise from Swagger/Postman during development, no CSRF surface since there's no cookie for the browser to send automatically). Short access-token expiry (15 min) and rotating, revocable refresh tokens bound the blast radius of a leaked token either way.
+- **Rate limiting** on `POST /queries` — bounds both abuse and LLM API cost (per-user token bucket). Not yet built — see Future Scalability.
+- **Secrets** (LLM API key, JWT secret, DB credentials) only ever in Container Apps' built-in secrets / environment config — never committed, never logged.
 - **CORS** restricted explicitly to the deployed frontend origin.
 - **Bean Validation** on every request DTO — reject malformed input before it reaches a service.
 

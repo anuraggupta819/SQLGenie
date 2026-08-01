@@ -1,0 +1,98 @@
+name: Deploy to Azure
+
+# Manual only - this needs Azure + Neon + Groq secrets configured as repo
+# secrets first (see docs/DEPLOYMENT.md). An automatic trigger would just
+# fail on every push until that setup is done.
+on:
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/sqlgenie-backend
+  RESOURCE_GROUP: sqlgenie-rg
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # for Azure OIDC login
+      contents: read
+      packages: write   # for pushing to GHCR
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:latest
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Ensure resource group exists
+        run: az group create --name "$RESOURCE_GROUP" --location "${{ secrets.AZURE_LOCATION }}"
+
+      - name: Deploy infrastructure
+        id: deploy
+        run: |
+          az deployment group create \
+            --resource-group "$RESOURCE_GROUP" \
+            --template-file infra/main.bicep \
+            --parameters \
+              backendImage="${{ env.IMAGE_NAME }}:${{ github.sha }}" \
+              ghcrUsername="${{ github.actor }}" \
+              ghcrToken="${{ secrets.GITHUB_TOKEN }}" \
+              dbUrl="${{ secrets.NEON_DB_URL }}" \
+              dbUsername="${{ secrets.NEON_DB_USERNAME }}" \
+              dbPassword="${{ secrets.NEON_DB_PASSWORD }}" \
+              readonlyDbUrl="${{ secrets.NEON_READONLY_DB_URL }}" \
+              readonlyDbUsername="${{ secrets.NEON_READONLY_DB_USERNAME }}" \
+              readonlyDbPassword="${{ secrets.NEON_READONLY_DB_PASSWORD }}" \
+              jwtSecret="${{ secrets.PROD_JWT_SECRET }}" \
+              groqApiKey="${{ secrets.GROQ_API_KEY }}"
+
+          BACKEND_URL=$(az deployment group show \
+            --resource-group "$RESOURCE_GROUP" --name main \
+            --query properties.outputs.backendUrl.value -o tsv)
+          echo "backend_url=$BACKEND_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch Static Web App deployment token
+        id: swa-token
+        run: |
+          TOKEN=$(az staticwebapp secrets list \
+            --name sqlgenie-frontend --resource-group "$RESOURCE_GROUP" \
+            --query "properties.apiKey" -o tsv)
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+        env:
+          VITE_API_BASE_URL: ${{ steps.deploy.outputs.backend_url }}
+
+      - name: Deploy frontend to Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ steps.swa-token.outputs.token }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: frontend/dist
+          skip_app_build: true
+          skip_api_build: true
